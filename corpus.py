@@ -30,17 +30,60 @@ def extraire_fables(contenu: str) -> list[dict]:
 
 
 def charger_corpus(force: bool = False) -> list[dict]:
-    """Charge le corpus local ou le télécharge au premier lancement."""
+    """Charge le corpus local ou le télécharge avec plusieurs tentatives."""
+
     if os.path.exists(CORPUS_FILE) and not force:
         with open(CORPUS_FILE, encoding="utf-8") as fichier:
             return json.load(fichier)
-    requete = urllib.request.Request(SOURCE_URL, headers={"User-Agent": "PyFind/1.0"})
-    with urllib.request.urlopen(requete, timeout=30) as reponse:
-        contenu = reponse.read().decode("utf-8", errors="replace")
-    fables = extraire_fables(contenu)
-    if not fables:
-        raise RuntimeError("Aucune fable détectée dans le document Gutenberg.")
-    os.makedirs("data", exist_ok=True)
-    with open(CORPUS_FILE, "w", encoding="utf-8") as fichier:
-        json.dump(fables, fichier, ensure_ascii=False, indent=2)
-    return fables
+
+    requete = urllib.request.Request(
+        SOURCE_URL,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; PyFind/1.0)"
+        }
+    )
+
+    derniere_erreur = None
+
+    for tentative in range(1, 4):
+        try:
+            print(f"Téléchargement du corpus (tentative {tentative}/3)...")
+
+            with urllib.request.urlopen(requete, timeout=60) as reponse:
+                contenu = reponse.read().decode(
+                    "utf-8",
+                    errors="replace"
+                )
+
+            fables = extraire_fables(contenu)
+
+            if not fables:
+                raise RuntimeError(
+                    "Aucune fable détectée dans le document Gutenberg."
+                )
+
+            os.makedirs("data", exist_ok=True)
+
+            with open(CORPUS_FILE, "w", encoding="utf-8") as fichier:
+                json.dump(
+                    fables,
+                    fichier,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
+            print(f"{len(fables)} fables téléchargées et enregistrées.")
+            return fables
+
+        except Exception as erreur:
+            derniere_erreur = erreur
+            print(f"Échec : {erreur}")
+
+            if tentative < 3:
+                import time
+                time.sleep(3 * tentative)
+
+    raise RuntimeError(
+        "Impossible de télécharger le corpus après 3 tentatives. "
+        "Vérifie ta connexion ou réessaie plus tard."
+    ) from derniere_erreur
