@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PyFind · Fables de La Fontaine</title>
+<style>
+  :root {
+    --fond: #e4ebe5;
+    --page: #f8faf6;
+    --texte: #16302a;
+    --discret: #4a625c;
+    --trait: #bccabf;
+    --accent: #0b665e;
+    --accent-fonce: #07483f;
+    --marqueur: #ffd54a;
+    --erreur-fond: #fbe4de;
+    --erreur: #7d2314;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte); font: 1rem/1.55 var(--sans); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .visuel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+  .page { max-width: 70rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem;
+          display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 3rem; }
+  @media (max-width: 52rem) { .page { grid-template-columns: 1fr; gap: 2rem; } }
+
+  h1 { font: 700 clamp(2.8rem, 7vw, 4.4rem)/1 var(--serif); letter-spacing: -0.03em; margin: 0; }
+  .devise { font: italic 1.25rem/1.4 var(--serif); color: var(--discret); margin: .4rem 0 1.75rem; }
+  h2 { font: 700 1.3rem/1.2 var(--serif); margin: 0; }
+  h3 { font: 700 1rem/1.3 var(--sans); margin: 1.75rem 0 .5rem; }
+
+  /* Le champ de recherche : seul élément « grand » de la page. */
+  .champ { display: flex; background: var(--page); border: 2px solid var(--accent); }
+  .champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: inherit;
+                 font: 1.4rem/1.3 var(--serif); padding: .8rem 1rem; }
+  .champ input:focus-visible { outline: none; }
+  .champ:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .champ button[type=submit] { background: var(--accent); color: #fff; border: 0;
+                               padding: 0 1.5rem; font-weight: 600; }
+  .champ button[type=submit]:hover { background: var(--accent-fonce); }
+
+  .aide { margin: 1rem 0 0; color: var(--discret); font-size: .95rem; }
+  .exemples { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0; padding: 0; list-style: none; }
+  .exemple { background: var(--page); border: 1px solid var(--trait); padding: .2rem .7rem;
+             font: .95rem var(--serif); }
+  .exemple:hover { border-color: var(--accent); }
+
+  .entete { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+            margin-top: 2.5rem; padding-bottom: .5rem; border-bottom: 2px solid var(--texte); }
+  .entete label { color: var(--discret); font-size: .95rem; }
+  select { font: inherit; padding: .15rem .3rem; background: var(--page); border: 1px solid var(--trait); }
+  #message { margin: .9rem 0 0; min-height: 1.5rem; }
+  #message .lien { background: none; border: 0; padding: 0; color: var(--accent);
+                   font-weight: 700; text-decoration: underline; }
+  .note { color: var(--discret); font-size: .9rem; }
+  .erreur { background: var(--erreur-fond); color: var(--erreur); padding: .7rem 1rem;
+            border-left: 4px solid var(--erreur); margin: .9rem 0 0; }
+
+  #resultats { list-style: none; margin: 0; padding: 0; counter-reset: rang; }
+  #resultats li { display: grid; grid-template-columns: 2.2rem 1fr; padding: 1.1rem 0;
+                  border-bottom: 1px solid var(--trait); }
+  #resultats li::before { counter-increment: rang; content: counter(rang);
+                          font: 700 1.4rem/1.2 var(--serif); color: var(--accent); }
+  .ligne { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .titre { background: none; border: 0; padding: 0; text-align: left;
+           font: 700 1.35rem/1.25 var(--serif); }
+  .titre:hover { color: var(--accent); text-decoration: underline; }
+  .score { color: var(--discret); font-size: .9rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .extrait { margin: .35rem 0 0; font: 1.05rem/1.5 var(--serif); color: var(--discret); }
+  mark { background: var(--marqueur); color: var(--texte); font-weight: 700; padding: 0 .12em; }
+
+  aside { align-self: start; }
+  dl { margin: .75rem 0 0; display: grid; grid-template-columns: auto 1fr; gap: .1rem 1rem; }
+  dt { color: var(--discret); }
+  dd { margin: 0; text-align: right; font: 700 1.1rem var(--serif); font-variant-numeric: tabular-nums; }
+  #top { list-style: none; margin: 0; padding: 0; }
+  #top button { width: 100%; display: flex; justify-content: space-between; gap: .5rem;
+                padding: .2rem .4rem; background: linear-gradient(90deg, #cfe0d3 var(--part), transparent var(--part));
+                border: 0; text-align: left; }
+  #top button:hover { outline: 1px solid var(--accent); }
+  #temps { margin: 0; padding: 0; list-style: none; font-size: .9rem; color: var(--discret); }
+  #temps li { display: flex; justify-content: space-between; gap: .5rem; }
+  #temps li span:last-child { white-space: nowrap; }
+
+  dialog { width: min(42rem, calc(100% - 1.5rem)); max-height: 88vh; padding: 0; border: 0;
+           background: var(--page); color: var(--texte); }
+  dialog:modal { overscroll-behavior: contain; }
+  dialog::backdrop { background: rgb(10 30 26 / .6); overflow: hidden; overscroll-behavior: contain; }
+  .lecture-tete { display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+                  padding: 1rem 1.25rem; border-bottom: 2px solid var(--texte); }
+  .lecture-tete form { margin: 0; }
+  .lecture-tete button { background: var(--accent); color: #fff; border: 0; padding: .4rem 1rem; }
+  #lecture-texte { padding: 1rem 1.25rem 1.5rem; white-space: pre-line; overflow: auto;
+                   max-height: calc(88vh - 5rem); font: 1.1rem/1.6 var(--serif); }
+</style>
+</head>
+<body>
+<div class="page">
+  <main>
+    <h1>PyFind</h1>
+    <p class="devise">Cherchez un mot, retrouvez la fable.</p>
+
+    <form id="formulaire" role="search">
+      <label class="visuel" for="q">Votre recherche</label>
+      <div class="champ">
+        <input id="q" type="search" maxlength="200" autocomplete="off" spellcheck="false"
+               placeholder="loup ET agneau" autofocus>
+        <button type="submit">Chercher</button>
+      </div>
+    </form>
+
+    <p class="aide"><strong>ET</strong> garde les fables qui contiennent les deux mots,
+      <strong>OU</strong> au moins un des deux, <strong>SAUF</strong> écarte le second.
+      Des guillemets cherchent une expression exacte. Essayez :</p>
+    <ul class="exemples">
+      <li><button type="button" class="exemple" data-q="loup ET agneau">loup ET agneau</button></li>
+      <li><button type="button" class="exemple" data-q="renard OU corbeau">renard OU corbeau</button></li>
+      <li><button type="button" class="exemple" data-q="loup SAUF chien">loup SAUF chien</button></li>
+      <li><button type="button" class="exemple" data-q="&quot;maitre corbeau&quot;">"maitre corbeau"</button></li>
+      <li><button type="button" class="exemple" data-q="renar">renar</button></li>
+    </ul>
+
+    <section aria-labelledby="titre-resultats">
+      <div class="entete">
+        <h2 id="titre-resultats">Résultats</h2>
+        <label>Afficher
+          <select id="limite">
+            <option value="5">les 5 meilleures</option>
+            <option value="10">les 10 meilleures</option>
+            <option value="20">les 20 meilleures</option>
+            <option value="50">les 50 meilleures</option>
+          </select>
+        </label>
+      </div>
+      <div id="message" role="status"></div>
+      <div id="erreur" class="erreur" role="alert" hidden></div>
+      <ol id="resultats"></ol>
+    </section>
+  </main>
+
+  <aside aria-labelledby="titre-stats">
+    <h2 id="titre-stats">Le livre en chiffres</h2>
+    <dl id="chiffres"></dl>
+    <h3>Mots les plus fréquents</h3>
+    <ol id="top"></ol>
+    <h3>Préparation du moteur</h3>
+    <ul id="temps"></ul>
+    <p id="origine" class="note"></p>
+    <p id="demo" class="erreur" hidden>Mini-corpus de démonstration (6 fables). Enregistrez le livre
+      complet sous <code>data/fables.txt</code> puis relancez.</p>
+  </aside>
+</div>
+
+<dialog id="lecture" closedby="any" aria-labelledby="lecture-titre">
+  <div class="lecture-tete">
+    <h2 id="lecture-titre"></h2>
+    <form method="dialog"><button autofocus>Fermer</button></form>
+  </div>
+  <div id="lecture-texte"></div>
+</dialog>
+
+<script>
+"use strict";
+const $ = (selecteur) => document.querySelector(selecteur);
+const champ = $("#q");
+const limite = $("#limite");
+
+/* Crée un élément HTML. On utilise textContent (jamais innerHTML) : le texte reçu n'est
+   donc jamais interprété comme du HTML. */
+function noeud(balise, texte, classe) {
+  const element = document.createElement(balise);
+  if (texte !== undefined) element.textContent = texte;
+  if (classe) element.className = classe;
+  return element;
+}
+
+/* Appelle l'API du serveur Python et renvoie la réponse JSON. */
+async function api(chemin, parametres) {
+  const reponse = await fetch(chemin + "?" + new URLSearchParams(parametres));
+  return reponse.json();
+}
+
+function montrerErreur(texte) {
+  const boite = $("#erreur");
+  boite.textContent = texte;
+  boite.hidden = false;
+}
+
+/* Un extrait : les mots trouvés (déjà en MAJUSCULES côté Python) sont surlignés. */
+function creerExtrait(segments) {
+  const paragraphe = noeud("p", undefined, "extrait");
+  for (const [texte, trouve] of segments) {
+    if (trouve) paragraphe.append(noeud("mark", texte));
+    else paragraphe.append(texte);
+  }
+  return paragraphe;
+}
+
+function creerResultat(resultat) {
+  const element = noeud("li");
+  const contenu = noeud("div");
+  const titre = noeud("button", resultat.titre, "titre");
+  titre.type = "button";
+  titre.addEventListener("click", () => lire(resultat.id));
+  const ligne = noeud("div", undefined, "ligne");
+  ligne.append(titre, noeud("span", "score " + resultat.score.toFixed(3), "score"));
+  contenu.append(ligne, creerExtrait(resultat.segments));
+  element.append(contenu);
+  return element;
+}
+
+/* La phrase au-dessus des résultats : nombre, durée, suggestion « Vouliez-vous dire ». */
+function creerMessage(donnees) {
+  const message = noeud("p");
+  const duree = (donnees.duree * 1000).toFixed(1) + " ms";
+  if (donnees.total === 0) {
+    message.append("Aucun résultat. ");
+  } else {
+    const affichees = donnees.resultats.length;
+    const pluriel = donnees.total > 1 ? "s" : "";
+    message.append(`${donnees.total} fable${pluriel} trouvée${pluriel} en ${duree}` +
+      (affichees < donnees.total ? ` (${affichees} affichées). ` : ". "));
+  }
+  if (donnees.requete_corrigee) {
+    const lien = noeud("button", donnees.requete_corrigee, "lien");
+    lien.type = "button";
+    lien.addEventListener("click", () => lancer(donnees.requete_corrigee));
+    message.append("Vouliez-vous dire : ", lien, " ? ");
+  }
+  if (donnees.ignores.length) {
+    message.append(noeud("span", "Mots ignorés car trop courants : " + donnees.ignores.join(", ") + ".", "note"));
+  }
+  return message;
+}
+
+function afficher(donnees) {
+  $("#erreur").hidden = true;
+  if (!donnees.ok) {
+    $("#message").replaceChildren();
+    $("#resultats").replaceChildren();
+    montrerErreur(donnees.erreur);
+    return;
+  }
+  $("#message").replaceChildren(creerMessage(donnees));
+  $("#resultats").replaceChildren(...donnees.resultats.map(creerResultat));
+}
+
+async function chercher(requete) {
+  if (!requete.trim()) {
+    $("#message").replaceChildren();
+    $("#resultats").replaceChildren();
+    return montrerErreur("Tapez un ou plusieurs mots à chercher.");
+  }
+  history.replaceState(null, "", "?q=" + encodeURIComponent(requete));
+  try {
+    afficher(await api("/api/recherche", { q: requete, limite: limite.value }));
+  } catch (erreur) {
+    montrerErreur("Le serveur PyFind ne répond pas. Vérifiez que « python web.py » tourne toujours.");
+  }
+}
+
+function lancer(requete) {
+  champ.value = requete;
+  chercher(requete);
+}
+
+/* Fenêtre de lecture d'une fable entière. */
+async function lire(numero) {
+  try {
+    const fable = await api("/api/fable", { id: numero });
+    if (fable.erreur) return montrerErreur(fable.erreur);
+    $("#lecture-titre").textContent = fable.titre;
+    $("#lecture-texte").textContent = fable.texte;
+    $("#lecture").showModal();
+  } catch (erreur) {
+    montrerErreur("Impossible de charger la fable.");
+  }
+}
+
+/* Panneau de droite : chiffres du livre, mots fréquents, temps de préparation. */
+function afficherStats(stats) {
+  const lignes = [["Fables", stats.fables], ["Mots différents", stats.mots_differents]];
+  $("#chiffres").replaceChildren(...lignes.flatMap(([nom, valeur]) =>
+    [noeud("dt", nom), noeud("dd", String(valeur))]));
+  const maximum = stats.top.length ? stats.top[0].occurrences : 1;
+  $("#top").replaceChildren(...stats.top.map((entree) => {
+    const element = noeud("li");
+    const bouton = noeud("button");
+    bouton.type = "button";
+    bouton.style.setProperty("--part", (100 * entree.occurrences / maximum) + "%");
+    bouton.append(noeud("span", entree.mot), noeud("span", String(entree.occurrences)));
+    bouton.addEventListener("click", () => lancer(entree.mot));
+    element.append(bouton);
+    return element;
+  }));
+  $("#temps").replaceChildren(...Object.entries(stats.temps).map(([nom, duree]) => {
+    const element = noeud("li");
+    element.append(noeud("span", nom), noeud("span", duree.toFixed(3) + " s"));
+    return element;
+  }));
+  $("#origine").textContent = stats.origine_index === "fichier"
+    ? "Index rechargé depuis data/index.json."
+    : "Index calculé, puis enregistré dans data/index.json.";
+  $("#demo").hidden = !stats.demo;
+}
+
+async function chargerStats() {
+  try {
+    afficherStats(await api("/api/stats", {}));
+  } catch (erreur) {
+    $("#origine").textContent = "Statistiques indisponibles.";
+  }
+}
+
+/* Branchements */
+$("#formulaire").addEventListener("submit", (evenement) => {
+  evenement.preventDefault();
+  chercher(champ.value);
+});
+limite.addEventListener("change", () => { if (champ.value.trim()) chercher(champ.value); });
+document.querySelectorAll(".exemple").forEach((bouton) =>
+  bouton.addEventListener("click", () => lancer(bouton.dataset.q)));
+
+/* Fermer la fenêtre en cliquant à côté : natif avec « closedby », sinon on le recrée (Safari). */
+const fenetre = $("#lecture");
+if (!("closedBy" in HTMLDialogElement.prototype)) {
+  fenetre.addEventListener("click", (evenement) => {
+    if (evenement.target !== fenetre) return;
+    const zone = fenetre.getBoundingClientRect();
+    const dedans = zone.top <= evenement.clientY && evenement.clientY <= zone.bottom &&
+                   zone.left <= evenement.clientX && evenement.clientX <= zone.right;
+    if (!dedans) fenetre.close();
+  });
+}
+
+chargerStats();
+const requeteInitiale = new URLSearchParams(location.search).get("q");
+if (requeteInitiale) lancer(requeteInitiale);
+</script>
+</body>
+</html>
